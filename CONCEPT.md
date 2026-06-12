@@ -128,8 +128,9 @@ permissions:
 3. Publish github.com/BetterMCPlugins/BetterNotes, release v1.0.0 — ideally **together with** the Modrinth/Hangar listings of all three plugins (one "suite launch" moment beats three trickles).
 4. README roadmap mentions the shared dashboard, like the siblings.
 
-## Open questions (decide before code)
+## Decisions (resolved 2026-06-12, shipped in v1.0.0)
 
-1. Name final? **BetterNotes** — checked 2026-06-12: no plugin of that name on Modrinth/SpigotMC (closest is "JustNote", a different concept).
-2. Severity names: `info/warn/alert` vs `low/medium/high`? Leaning info/warn/alert (matches log-level intuition).
-3. Should the report-resolve "[add note]" prompt live in BetterNotes (listening to a future BetterReports event) or in BetterReports (querying NotesService)? Leaning BetterReports-side via NotesService — no new event needed in v1.
+1. Name: **BetterNotes** — no collision on Modrinth/SpigotMC (closest is "JustNote", a different concept).
+2. Severities: `info/warn/alert` (matches log-level intuition).
+3. The cross-plugin service shipped as the `NotesApi` interface (ServicesManager); the report-resolve "[add note]" prompt will live in BetterReports, querying `NotesApi` — no new event needed.
+4. Custom events are async-aware (`!Bukkit.isPrimaryThread()` at construction) — fired from the DB worker normally, but safe if a future code path fires them from the main thread.
