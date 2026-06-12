@@ -1,0 +1,41 @@
+name: BetterNotes
+version: ${project.version}
+main: dev.nikhey.betternotes.BetterNotesPlugin
+api-version: '1.21'
+folia-supported: true
+author: Nikhey
+description: Staff notes and a watchlist - institutional memory for your staff team.
+website: https://discord.gg/UfnyJgbY4P
+softdepend: [PlaceholderAPI, DiscordSRV]
+
+commands:
+  notes:
+    description: Manage staff notes on players
+    usage: /notes <add|view|pin|unpin|remove|search|recent|purge|reload> [args]
+    aliases: [note, bnotes]
+    permission: betternotes.staff
+  watchlist:
+    description: Manage the player watchlist
+    usage: /watchlist <add|remove|list>
+    aliases: [wl]
+    permission: betternotes.staff
+
+permissions:
+  betternotes.staff:
+    description: View notes and the watchlist
+    default: op
+  betternotes.add:
+    description: Add notes and watchlist entries, pin notes
+    default: op
+  betternotes.remove.own:
+    description: Remove own notes
+    default: op
+  betternotes.remove.any:
+    description: Remove anyone's notes
+    default: op
+  betternotes.notify:
+    description: Receive watchlist join alerts and alert-note notices
+    default: op
+  betternotes.admin:
+    description: Purge notes and reload the config
+    default: op

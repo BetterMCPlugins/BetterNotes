@@ -1,0 +1,38 @@
+# BetterNotes configuration
+# Every module can be switched off independently - no bloat, no surprises.
+
+notes:
+  # Maximum length of a single note.
+  max-length: 256
+  # Default number of notes shown by /notes recent.
+  recent-limit: 10
+
+notify:
+  # Alert online staff (betternotes.notify) when a watchlisted player joins.
+  watchlist-join: true
+  # Quiet notice to staff when a player with at least one alert-severity note
+  # joins. Off by default - the watchlist is the loud channel; this is for
+  # teams that want extra eyes on flagged players without watchlisting them.
+  alert-notes-on-join: false
+  # Announce note/watchlist changes to online staff (betternotes.notify).
+  ingame: true
+
+discord:
+  # Raw webhook - works without any other plugin.
+  enabled: false
+  webhook-url: ""
+  # DiscordSRV routing - used automatically when DiscordSRV is installed.
+  # channel: the DiscordSRV in-game channel name to post to ("" = main channel).
+  # Tip: if both the webhook and DiscordSRV are enabled, alerts go to both.
+  discordsrv:
+    enabled: true
+    channel: ""
+  # Which events are sent to Discord.
+  send:
+    watchlist-joins: true
+    alert-notes: true
+
+retention:
+  # Soft-deleted notes (removed with /notes remove, kept for accountability)
+  # are hard-deleted after this many days. 0 = keep forever.
+  deleted-days: 30
