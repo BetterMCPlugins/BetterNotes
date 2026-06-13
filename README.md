@@ -76,6 +76,16 @@ Requires Java 21+. The jar lands in `target/BetterNotes-<version>.jar`. Drop it 
 
 Questions, bug reports, feature ideas — join the [Discord server](https://discord.gg/UfnyJgbY4P) or open a GitHub issue.
 
+## Part of the BetterMCPlugins suite
+
+BetterNotes is one of three free, open-source staff plugins that share a design and a planned web dashboard:
+
+- **[BetterAudit](https://github.com/BetterMCPlugins/BetterAudit)** — staff action audit log
+- **[BetterReports](https://github.com/BetterMCPlugins/BetterReports)** — player reports with automatic evidence capture
+- **[BetterNotes](https://github.com/BetterMCPlugins/BetterNotes)** — staff notes and a player watchlist *(this plugin)*
+
+Run them together and the same players, staff and timeline line up across all three.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
