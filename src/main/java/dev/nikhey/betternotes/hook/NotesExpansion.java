@@ -8,6 +8,8 @@ import org.bukkit.plugin.Plugin;
 /**
  * PlaceholderAPI expansion. Placeholders (per player):
  *   %betternotes_count%        active notes on the player
+ *   %betternotes_count_info%   active info-severity notes
+ *   %betternotes_count_warn%   active warn-severity notes
  *   %betternotes_count_alert%  active alert-severity notes
  *   %betternotes_watchlisted%  yes/no
  *
@@ -56,7 +58,9 @@ public final class NotesExpansion extends PlaceholderExpansion {
         }
         return switch (params.toLowerCase()) {
             case "count" -> String.valueOf(counts.total());
-            case "count_alert" -> String.valueOf(counts.alerts());
+            case "count_info" -> String.valueOf(counts.info());
+            case "count_warn" -> String.valueOf(counts.warn());
+            case "count_alert" -> String.valueOf(counts.alert());
             case "watchlisted" -> counts.watchlisted() ? "yes" : "no";
             default -> null;
         };

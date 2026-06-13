@@ -33,7 +33,7 @@ BetterNotes does one thing well:
 
 | Plugin | What you get |
 |---|---|
-| **PlaceholderAPI** | `%betternotes_count%`, `%betternotes_count_alert%`, `%betternotes_watchlisted%` — e.g. for staff scoreboards |
+| **PlaceholderAPI** | `%betternotes_count%`, `%betternotes_count_info%`, `%betternotes_count_warn%`, `%betternotes_count_alert%`, `%betternotes_watchlisted%` — e.g. for staff scoreboards |
 | **DiscordSRV** | Alerts route through your existing DiscordSRV channels — no webhook setup needed |
 
 For plugin developers: BetterNotes registers a `NotesApi` service in Bukkit's ServicesManager (add note, remove note, note count, watchlist status) and fires `NoteAddEvent`, `NoteRemoveEvent`, `WatchlistAddEvent`, `WatchlistRemoveEvent`.

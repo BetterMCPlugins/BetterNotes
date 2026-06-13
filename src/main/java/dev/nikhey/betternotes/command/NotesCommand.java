@@ -80,12 +80,18 @@ public final class NotesCommand implements TabExecutor {
         }
         Severity severity = Severity.INFO;
         int textFrom = 2;
-        if (args.length > 3) {
-            var parsed = Severity.parse(args[2]);
-            if (parsed.isPresent()) {
-                severity = parsed.get();
-                textFrom = 3;
-            }
+        var parsed = Severity.parse(args[2]);
+        if (parsed.isPresent()) {
+            severity = parsed.get();
+            textFrom = 3;
+        }
+        if (textFrom >= args.length) {
+            // "/notes add Steve warn" with no body - the severity word was the
+            // last token. Reject instead of silently saving an INFO note "warn".
+            sender.sendMessage(NoteService.prefixed(
+                    "Add some note text after the severity: /notes add " + args[1]
+                            + " " + severity.display() + " <text>", NamedTextColor.RED));
+            return;
         }
         String text = String.join(" ", List.of(args).subList(textFrom, args.length));
         service.addNote(sender, target, nameOf(target, args[1]), severity, text);
@@ -112,7 +118,7 @@ public final class NotesCommand implements TabExecutor {
                     }
                     sender.sendMessage(NoteService.prefixed("Notes on " + targetName + " — "
                             + counts.active() + " total"
-                            + (counts.alerts() > 0 ? ", " + counts.alerts() + " alert" : "")
+                            + (counts.alert() > 0 ? ", " + counts.alert() + " alert" : "")
                             + (page > 1 ? " (page " + page + ")" : ""), NamedTextColor.GOLD));
                     for (Note note : notes) {
                         sender.sendMessage(noteLine(note));
@@ -264,6 +270,21 @@ public final class NotesCommand implements TabExecutor {
                         NamedTextColor.RED));
                 return;
             }
+            if (days < 1) {
+                // days <= 0 would match every note (cutoff at/after now) and wipe
+                // the whole table. Never let a typo do that.
+                sender.sendMessage(NoteService.prefixed(
+                        "Days must be at least 1.", NamedTextColor.RED));
+                return;
+            }
+            // This hard-deletes ACTIVE notes by age, not just removed ones - so
+            // require an explicit confirm token to guard against a mistyped count.
+            if (args.length < 4 || !args[3].equalsIgnoreCase("confirm")) {
+                sender.sendMessage(NoteService.prefixed("This permanently deletes ALL notes (including active "
+                        + "ones) older than " + days + " days. Re-run with: /notes purge olderthan "
+                        + days + " confirm", NamedTextColor.YELLOW));
+                return;
+            }
             store.purgeOlderThan(days).whenComplete((deleted, error) -> {
                 if (error != null) {
                     sender.sendMessage(NoteService.prefixed("Purge failed.", NamedTextColor.RED));
@@ -326,13 +347,13 @@ public final class NotesCommand implements TabExecutor {
         }
         String sub = args[0].toLowerCase(Locale.ROOT);
         if (args.length == 2 && (sub.equals("add") || sub.equals("view"))) {
-            return onlineNames(args[1]);
+            return playerNames(args[1]);
         }
         if (args.length == 2 && sub.equals("purge")) {
             return List.of("player", "olderthan");
         }
         if (args.length == 3 && sub.equals("purge") && args[1].equalsIgnoreCase("player")) {
-            return onlineNames(args[2]);
+            return playerNames(args[2]);
         }
         if (args.length == 3 && sub.equals("add")) {
             String prefix = args[2].toLowerCase(Locale.ROOT);
@@ -342,11 +363,31 @@ public final class NotesCommand implements TabExecutor {
         return List.of();
     }
 
-    static List<String> onlineNames(String prefix) {
+    /**
+     * Completion names: online players always, plus offline players who have
+     * played before once the staffer has typed at least one character (an empty
+     * prefix would otherwise dump the whole player history). Capped for safety.
+     */
+    static List<String> playerNames(String prefix) {
         String lower = prefix.toLowerCase(Locale.ROOT);
-        return Bukkit.getOnlinePlayers().stream()
-                .map(Player::getName)
-                .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(lower))
-                .toList();
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            String name = p.getName();
+            if (name.toLowerCase(Locale.ROOT).startsWith(lower)) {
+                names.add(name);
+            }
+        }
+        if (!lower.isEmpty()) {
+            for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+                String name = p.getName();
+                if (name != null && name.toLowerCase(Locale.ROOT).startsWith(lower)) {
+                    names.add(name);
+                    if (names.size() >= 60) {
+                        break;
+                    }
+                }
+            }
+        }
+        return List.copyOf(names);
     }
 }

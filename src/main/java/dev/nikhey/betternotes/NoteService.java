@@ -40,7 +40,10 @@ public final class NoteService implements NotesApi {
     public static final UUID CONSOLE_UUID = new UUID(0, 0);
 
     /** Cached per-player state for online players (PAPI is synchronous, the store is not). */
-    public record CachedCounts(int total, int alerts, boolean watchlisted) {
+    public record CachedCounts(int info, int warn, int alert, boolean watchlisted) {
+        public int total() {
+            return info + warn + alert;
+        }
     }
 
     private final Supplier<Settings> settings;
@@ -48,6 +51,10 @@ public final class NoteService implements NotesApi {
     private final Logger logger;
     private final java.util.List<AlertSink> sinks = new CopyOnWriteArrayList<>();
     private final Map<UUID, CachedCounts> cache = new ConcurrentHashMap<>();
+    // Tracks who is actually online so an async cache load that finishes after
+    // the player quit can't re-insert a stale entry. Mutated on the main thread
+    // (join/quit), read on the DB thread inside the atomic cache.compute below.
+    private final java.util.Set<UUID> online = ConcurrentHashMap.newKeySet();
 
     public NoteService(Supplier<Settings> settings, NoteStore store, Logger logger) {
         this.settings = settings;
@@ -237,14 +244,15 @@ public final class NoteService implements NotesApi {
 
     public void handleJoin(Player player) {
         UUID uuid = player.getUniqueId();
+        online.add(uuid);
         store.countsFor(uuid).thenCombine(store.watchlistGet(uuid), (counts, watch) -> {
-            cache.put(uuid, new CachedCounts(counts.active(), counts.alerts(), watch.isPresent()));
+            store(uuid, new CachedCounts(counts.info(), counts.warn(), counts.alert(), watch.isPresent()));
             Settings s = settings.get();
             if (watch.isPresent() && s.watchlistJoinAlert()) {
                 WatchlistEntry entry = watch.get();
                 String reason = entry.reason() == null || entry.reason().isBlank()
                         ? "" : " — " + entry.reason();
-                notifyStaff(Component.text()
+                broadcast(Component.text()
                         .append(prefix())
                         .append(Component.text("Watchlisted player ", NamedTextColor.GOLD))
                         .append(noteTargetLink(player.getName()))
@@ -262,22 +270,26 @@ public final class NoteService implements NotesApi {
                                     + (counts.active() > 0 ? "\nNotes: " + counts.active() : ""),
                             0xE67E22);
                 }
-            } else if (counts.alerts() > 0 && s.alertNotesOnJoin()) {
-                notifyStaff(Component.text()
+            } else if (counts.alert() > 0 && s.alertNotesOnJoin()) {
+                broadcast(Component.text()
                         .append(prefix())
                         .append(noteTargetLink(player.getName()))
-                        .append(Component.text(" joined and has " + counts.alerts() + " alert note"
-                                + (counts.alerts() == 1 ? "" : "s") + ".", NamedTextColor.GRAY))
+                        .append(Component.text(" joined and has " + counts.alert() + " alert note"
+                                + (counts.alert() == 1 ? "" : "s") + ".", NamedTextColor.GRAY))
                         .build(), uuid);
             }
             return null;
         }).exceptionally(error -> {
+            // Leave a neutral entry so placeholders resolve instead of staying
+            // blank forever for an online player whose initial load failed.
+            store(uuid, new CachedCounts(0, 0, 0, false));
             logger.warn("Failed to load notes for joining player {}", player.getName(), error);
             return null;
         });
     }
 
     public void evict(UUID uuid) {
+        online.remove(uuid);
         cache.remove(uuid);
     }
 
@@ -285,13 +297,23 @@ public final class NoteService implements NotesApi {
         return cache.get(uuid);
     }
 
+    /**
+     * Stores a cache entry only if the player is still online, atomically with
+     * the online check. evict() removes from {@link #online} before the cache,
+     * so a put losing the race to a quit is dropped instead of leaking.
+     */
+    private void store(UUID uuid, CachedCounts counts) {
+        cache.compute(uuid, (k, old) -> online.contains(uuid) ? counts : null);
+    }
+
     private void refreshCache(UUID uuid) {
-        if (Bukkit.getPlayer(uuid) == null) {
+        if (!online.contains(uuid)) {
             return;
         }
-        store.countsFor(uuid).thenCombine(store.watchlistGet(uuid), (counts, watch) ->
-                cache.put(uuid, new CachedCounts(counts.active(), counts.alerts(), watch.isPresent()))
-        ).exceptionally(error -> {
+        store.countsFor(uuid).thenCombine(store.watchlistGet(uuid), (counts, watch) -> {
+            store(uuid, new CachedCounts(counts.info(), counts.warn(), counts.alert(), watch.isPresent()));
+            return null;
+        }).exceptionally(error -> {
             logger.warn("Failed to refresh the note cache", error);
             return null;
         });
@@ -311,11 +333,21 @@ public final class NoteService implements NotesApi {
 
     // --- plumbing ---
 
-    /** Staff broadcast; the player the message is about never sees it. */
+    /**
+     * Announcement of a note/watchlist mutation. Honors notify.ingame, which
+     * exists to silence this routine chatter - it must NOT gate the watchlist
+     * join alert (that has its own notify.watchlist-join flag and goes through
+     * {@link #broadcast}).
+     */
     private void notifyStaff(Component message, UUID about) {
         if (!settings.get().notifyIngame()) {
             return;
         }
+        broadcast(message, about);
+    }
+
+    /** Sends to every notify-staff member except the player the message is about. */
+    private void broadcast(Component message, UUID about) {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (player.hasPermission(Settings.PERM_NOTIFY) && !player.getUniqueId().equals(about)) {
                 player.sendMessage(message);

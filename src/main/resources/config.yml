@@ -14,7 +14,9 @@ notify:
   # joins. Off by default - the watchlist is the loud channel; this is for
   # teams that want extra eyes on flagged players without watchlisting them.
   alert-notes-on-join: false
-  # Announce note/watchlist changes to online staff (betternotes.notify).
+  # Announce routine note/watchlist *changes* (added, removed, watchlisted) to
+  # online staff (betternotes.notify). Turning this off does NOT silence the
+  # watchlist join alert above - that is governed by watchlist-join.
   ingame: true
 
 discord:

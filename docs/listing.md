@@ -24,7 +24,7 @@ BetterNotes puts your team's memory where the action is:
 
 ### Integrations (all optional, auto-detected)
 
-PlaceholderAPI (`%betternotes_count%`, `%betternotes_watchlisted%` for staff scoreboards) · DiscordSRV (watchlist joins and alert notes in your existing channels, zero setup) · raw Discord webhooks (no other plugin needed)
+PlaceholderAPI (`%betternotes_count%`, `%betternotes_count_alert%`, `%betternotes_watchlisted%` for staff scoreboards) · DiscordSRV (watchlist joins and alert notes in your existing channels, zero setup) · raw Discord webhooks (no other plugin needed)
 
 For developers: a `NotesApi` Bukkit service + events (`NoteAddEvent`, `WatchlistAddEvent`, ...) for your own integrations.
 

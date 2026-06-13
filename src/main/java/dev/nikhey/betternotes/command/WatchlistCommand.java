@@ -128,7 +128,12 @@ public final class WatchlistCommand implements TabExecutor {
                     .filter(sub -> sub.startsWith(prefix)).toList();
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove"))) {
-            return NotesCommand.onlineNames(args[1]);
+            return NotesCommand.playerNames(args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("add")) {
+            String prefix = args[2].toLowerCase(Locale.ROOT);
+            return List.of("7d", "30d", "12h", "1w").stream()
+                    .filter(d -> d.startsWith(prefix)).toList();
         }
         return List.of();
     }

@@ -33,8 +33,11 @@ public final class NoteStore {
     /** Bump on any breaking schema change; external readers check this. */
     public static final int SCHEMA_VERSION = 1;
 
-    /** Per-target counts of active notes, used for caches and the view header. */
-    public record Counts(int active, int alerts, int deleted) {
+    /** Per-target counts of active notes by severity, plus removed-note count. */
+    public record Counts(int info, int warn, int alert, int deleted) {
+        public int active() {
+            return info + warn + alert;
+        }
     }
 
     private final File file;
@@ -145,15 +148,17 @@ public final class NoteStore {
         CompletableFuture<Counts> future = new CompletableFuture<>();
         io.execute(() -> {
             try (PreparedStatement ps = conn.prepareStatement("""
-                    SELECT SUM(CASE WHEN deleted_time = 0 THEN 1 ELSE 0 END) active,
-                           SUM(CASE WHEN deleted_time = 0 AND severity = 'ALERT' THEN 1 ELSE 0 END) alerts,
+                    SELECT SUM(CASE WHEN deleted_time = 0 AND severity = 'INFO' THEN 1 ELSE 0 END) info,
+                           SUM(CASE WHEN deleted_time = 0 AND severity = 'WARN' THEN 1 ELSE 0 END) warn,
+                           SUM(CASE WHEN deleted_time = 0 AND severity = 'ALERT' THEN 1 ELSE 0 END) alert,
                            SUM(CASE WHEN deleted_time > 0 THEN 1 ELSE 0 END) deleted
                     FROM notes WHERE target_uuid = ?""")) {
                 ps.setString(1, target.toString());
                 try (ResultSet rs = ps.executeQuery()) {
                     future.complete(rs.next()
-                            ? new Counts(rs.getInt("active"), rs.getInt("alerts"), rs.getInt("deleted"))
-                            : new Counts(0, 0, 0));
+                            ? new Counts(rs.getInt("info"), rs.getInt("warn"), rs.getInt("alert"),
+                                    rs.getInt("deleted"))
+                            : new Counts(0, 0, 0, 0));
                 }
             } catch (SQLException e) {
                 future.completeExceptionally(e);
@@ -254,8 +259,15 @@ public final class NoteStore {
         return future;
     }
 
-    /** Hard-deletes all notes (active and deleted) older than the given number of days. */
+    /**
+     * Hard-deletes all notes (active and deleted) older than the given number of
+     * days. Guards days &lt; 1 defensively: a 0/negative cutoff would match every
+     * row and wipe the table (the command layer also rejects it).
+     */
     public CompletableFuture<Integer> purgeOlderThan(int days) {
+        if (days < 1) {
+            return CompletableFuture.completedFuture(0);
+        }
         long cutoff = System.currentTimeMillis() - days * 86_400_000L;
         return update("DELETE FROM notes WHERE time < ?", ps -> ps.setLong(1, cutoff));
     }
